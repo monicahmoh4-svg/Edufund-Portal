@@ -6,7 +6,12 @@
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
+
+# Copy package files AND prisma schema before npm install
+# (postinstall runs "prisma generate" which needs schema.prisma)
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+
 RUN npm install
 
 # Stage 2: Builder
@@ -17,20 +22,18 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# ── FIX: Remove any route.ts files that landed in page-only folders ──
-# These cause "parallel pages" conflicts in Next.js
-RUN rm -f app/applications/\[id\]/route.ts
-RUN rm -f app/api/applications/\[id\]/page.tsx
-RUN rm -f app/api/payments/\[id\]/page.tsx
-RUN rm -f app/api/institutions/\[id\]/page.tsx
+# Remove any conflicting route/page files before build
+RUN rm -f "app/applications/[id]/route.ts"
+RUN rm -f "app/api/applications/[id]/page.tsx"
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build Next.js — standalone output for Docker
+# Build Next.js (standalone output required for Docker)
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV DATABASE_URL="postgresql://x:x@localhost:5432/x"
+
 RUN npm run build
 
 # Stage 3: Production Runner
@@ -44,7 +47,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Next.js standalone build output
+# Next.js standalone build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
@@ -55,7 +58,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
-# tsx for running seed script
+# tsx for seed script
 COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
 
