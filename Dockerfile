@@ -14,6 +14,7 @@ RUN npm install --only=production && npm cache clean --force
 # Build
 FROM base AS builder
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma
 RUN npm install
 COPY . .
 COPY .env.example .env
