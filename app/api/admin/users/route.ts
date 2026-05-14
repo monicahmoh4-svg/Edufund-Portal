@@ -1,4 +1,5 @@
 // app/api/admin/users/route.ts
+export const runtime = 'nodejs'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
