@@ -1,4 +1,5 @@
 // app/api/payments/callback/route.ts
+export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { parseCallbackData } from '@/lib/mpesa'
