@@ -1,20 +1,22 @@
 // app/api/auth/login/route.ts
-import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
-import { verifyPassword, signToken } from '@/lib/auth'
-import { apiError, apiSuccess } from '@/lib/utils'
-import { loginSchema } from '@/lib/validations'
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const { email, password } = body
 
-    const result = loginSchema.safeParse(body)
-    if (!result.success) {
-      return apiError('Invalid email or password format')
+    if (!email || !password) {
+      return NextResponse.json(
+        { success: false, error: 'Email and password are required' },
+        { status: 400 }
+      )
     }
 
-    const { email, password } = result.data
+    // Dynamic imports — avoids bundling issues in standalone Docker build
+    const { db } = await import('@/lib/db')
+    const bcrypt = await import('bcryptjs')
+    const jwt = await import('jsonwebtoken')
 
     const user = await db.user.findUnique({
       where: { email },
@@ -30,17 +32,42 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (!user) return apiError('Invalid email or password', 401)
-    if (!user.isActive) return apiError('Account is disabled. Contact support.', 403)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
 
-    const validPassword = await verifyPassword(password, user.password)
-    if (!validPassword) return apiError('Invalid email or password', 401)
+    if (!user.isActive) {
+      return NextResponse.json(
+        { success: false, error: 'Account is disabled. Contact support.' },
+        { status: 403 }
+      )
+    }
 
-    const token = signToken({ userId: user.id, email: user.email, role: user.role })
+    const validPassword = await bcrypt.compare(password, user.password)
+    if (!validPassword) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
 
-    const { password: _, ...userWithoutPassword } = user
+    const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+    const token = jwt.default.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      secret,
+      { expiresIn: '7d' }
+    )
 
-    const response = apiSuccess({ user: userWithoutPassword, token })
+    const { password: _pwd, ...userWithoutPassword } = user
+
+    const response = NextResponse.json({
+      success: true,
+      data: { user: userWithoutPassword, token },
+    })
+
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -52,6 +79,9 @@ export async function POST(req: NextRequest) {
     return response
   } catch (error) {
     console.error('Login error:', error)
-    return apiError('Login failed. Please try again.', 500)
+    return NextResponse.json(
+      { success: false, error: 'Login failed. Please try again.' },
+      { status: 500 }
+    )
   }
 }
