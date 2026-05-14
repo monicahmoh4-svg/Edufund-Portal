@@ -1,5 +1,9 @@
 // app/api/auth/me/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import jwt from 'jsonwebtoken'
+
+export const runtime = 'nodejs'
 
 function extractToken(req: NextRequest): string | null {
   const auth = req.headers.get('authorization')
@@ -11,19 +15,22 @@ export async function GET(req: NextRequest) {
   try {
     const token = extractToken(req)
     if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
-
-    const jwt = await import('jsonwebtoken')
-    const { db } = await import('@/lib/db')
 
     const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
     let payload: { userId: string; email: string; role: string }
 
     try {
-      payload = jwt.default.verify(token, secret) as typeof payload
+      payload = jwt.verify(token, secret) as typeof payload
     } catch {
-      return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
+      return NextResponse.json(
+        { success: false, error: 'Invalid token' },
+        { status: 401 }
+      )
     }
 
     const user = await db.user.findUnique({
@@ -41,7 +48,10 @@ export async function GET(req: NextRequest) {
     })
 
     if (!user || !user.isActive) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     const unreadNotifications = await db.notification.count({
@@ -54,7 +64,10 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error('Me error:', error)
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    )
   }
 }
 
