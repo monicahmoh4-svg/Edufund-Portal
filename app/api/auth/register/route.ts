@@ -1,12 +1,16 @@
 // app/api/auth/register/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+
+export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { fullName, email, phone, password, confirmPassword } = body
 
-    // Basic validation
     if (!fullName || !email || !phone || !password) {
       return NextResponse.json(
         { success: false, error: 'All fields are required' },
@@ -28,11 +32,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Dynamic imports — avoids bundling issues in standalone Docker build
-    const { db } = await import('@/lib/db')
-    const bcrypt = await import('bcryptjs')
-    const jwt = await import('jsonwebtoken')
-
     const existing = await db.user.findUnique({ where: { email } })
     if (existing) {
       return NextResponse.json(
@@ -44,36 +43,16 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     const user = await db.user.create({
-      data: {
-        fullName,
-        email,
-        phone,
-        password: hashedPassword,
-        role: 'STUDENT',
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        role: true,
-      },
+      data: { fullName, email, phone, password: hashedPassword, role: 'STUDENT' },
+      select: { id: true, fullName: true, email: true, phone: true, role: true },
     })
 
     const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-    const token = jwt.default.sign(
+    const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       secret,
       { expiresIn: '7d' }
     )
-
-    // Send welcome email (non-blocking, ignore errors)
-    try {
-      const { sendWelcomeEmail } = await import('@/lib/email')
-      sendWelcomeEmail(user.email, user.fullName).catch(() => {})
-    } catch {
-      // email failure must never break registration
-    }
 
     const response = NextResponse.json(
       { success: true, data: { user, token } },
