@@ -1,4 +1,5 @@
 // app/api/applications/route.ts
+export const runtime = 'nodejs'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
