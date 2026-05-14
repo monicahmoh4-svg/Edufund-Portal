@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Required for Docker/Railway deployment — creates .next/standalone
   output: 'standalone',
 
   images: {
@@ -11,7 +10,15 @@ const nextConfig = {
   },
 
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
+    // Tell Next.js NOT to bundle these — load from node_modules at runtime
+    serverComponentsExternalPackages: [
+      '@prisma/client',
+      'bcryptjs',
+      'jsonwebtoken',
+      'nodemailer',
+      'multer',
+      'sharp',
+    ],
   },
 
   async headers() {
