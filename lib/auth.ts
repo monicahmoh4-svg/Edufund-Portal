@@ -1,11 +1,15 @@
 // lib/auth.ts
 import { NextRequest } from 'next/server'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 
 export interface JWTPayload {
   userId: string
   email: string
   role: string
 }
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
 
 function extractToken(req: NextRequest): string | null {
   const auth = req.headers.get('authorization')
@@ -14,27 +18,19 @@ function extractToken(req: NextRequest): string | null {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  const bcrypt = await import('bcryptjs')
   return bcrypt.hash(password, 12)
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const bcrypt = await import('bcryptjs')
   return bcrypt.compare(password, hash)
 }
 
 export function signToken(payload: JWTPayload): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const jwt = require('jsonwebtoken')
-  const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-  return jwt.sign(payload, secret, { expiresIn: '7d' })
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
 }
 
 export function verifyToken(token: string): JWTPayload {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const jwt = require('jsonwebtoken')
-  const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-  return jwt.verify(token, secret) as JWTPayload
+  return jwt.verify(token, JWT_SECRET) as JWTPayload
 }
 
 export async function getAuthUser(req: NextRequest) {
