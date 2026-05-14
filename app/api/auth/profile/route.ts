@@ -1,30 +1,34 @@
 // app/api/auth/profile/route.ts
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
-import { apiError, apiSuccess } from '@/lib/utils'
-import { z } from 'zod'
 
-const profileUpdateSchema = z.object({
-  fullName: z.string().min(3).optional(),
-  phone: z.string().regex(/^(?:254|\+254|0)?(7[0-9]{8}|1[0-9]{8})$/).optional(),
-})
+export const runtime = 'nodejs'
 
 export async function PATCH(req: NextRequest) {
   const { user, error } = await requireAuth(req)
-  if (error || !user) return apiError(error || 'Unauthorized', 401)
+  if (error || !user) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
 
   const body = await req.json()
-  const result = profileUpdateSchema.safeParse(body)
-  if (!result.success) {
-    return apiError(Object.values(result.error.flatten().fieldErrors)[0]?.[0] || 'Validation failed')
+  const { fullName, phone } = body
+
+  if (!fullName && !phone) {
+    return NextResponse.json(
+      { success: false, error: 'Nothing to update' },
+      { status: 400 }
+    )
   }
 
   const updated = await db.user.update({
     where: { id: user.id },
-    data: result.data,
+    data: {
+      ...(fullName && { fullName: String(fullName) }),
+      ...(phone && { phone: String(phone) }),
+    },
     select: { id: true, fullName: true, email: true, phone: true, role: true },
   })
 
-  return apiSuccess(updated)
+  return NextResponse.json({ success: true, data: updated })
 }
