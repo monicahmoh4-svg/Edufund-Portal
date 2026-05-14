@@ -1,10 +1,5 @@
-// lib/auth.ts — JWT utilities + auth helpers for API routes (Node.js runtime only)
-import jwt from 'jsonwebtoken'
-import bcrypt from 'bcryptjs'
+// lib/auth.ts
 import { NextRequest } from 'next/server'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 
 export interface JWTPayload {
   userId: string
@@ -12,26 +7,34 @@ export interface JWTPayload {
   role: string
 }
 
+function extractToken(req: NextRequest): string | null {
+  const auth = req.headers.get('authorization')
+  if (auth?.startsWith('Bearer ')) return auth.substring(7)
+  return req.cookies.get('auth_token')?.value || null
+}
+
 export async function hashPassword(password: string): Promise<string> {
+  const bcrypt = await import('bcryptjs')
   return bcrypt.hash(password, 12)
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const bcrypt = await import('bcryptjs')
   return bcrypt.compare(password, hash)
 }
 
 export function signToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const jwt = require('jsonwebtoken')
+  const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+  return jwt.sign(payload, secret, { expiresIn: '7d' })
 }
 
 export function verifyToken(token: string): JWTPayload {
-  return jwt.verify(token, JWT_SECRET) as JWTPayload
-}
-
-function extractToken(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) return authHeader.substring(7)
-  return req.cookies.get('auth_token')?.value || null
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const jwt = require('jsonwebtoken')
+  const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+  return jwt.verify(token, secret) as JWTPayload
 }
 
 export async function getAuthUser(req: NextRequest) {
@@ -40,7 +43,6 @@ export async function getAuthUser(req: NextRequest) {
 
   try {
     const payload = verifyToken(token)
-    // Lazy import db to keep this file edge-safe at module scope
     const { db } = await import('./db')
     const user = await db.user.findUnique({
       where: { id: payload.userId },
