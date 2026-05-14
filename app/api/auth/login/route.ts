@@ -1,5 +1,10 @@
 // app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+
+export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,11 +17,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-
-    // Dynamic imports — avoids bundling issues in standalone Docker build
-    const { db } = await import('@/lib/db')
-    const bcrypt = await import('bcryptjs')
-    const jwt = await import('jsonwebtoken')
 
     const user = await db.user.findUnique({
       where: { email },
@@ -55,12 +55,13 @@ export async function POST(req: NextRequest) {
     }
 
     const secret = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-    const token = jwt.default.sign(
+    const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       secret,
       { expiresIn: '7d' }
     )
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _pwd, ...userWithoutPassword } = user
 
     const response = NextResponse.json({
