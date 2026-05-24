@@ -1,18 +1,23 @@
 // app/api/payments/status/route.ts
 export const runtime = 'nodejs'
-import { NextRequest } from 'next/server'
+
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
-import { apiError, apiSuccess } from '@/lib/utils'
 import { ApplicationStatus } from '@prisma/client'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(req)
-  if (error || !user) return apiError(error || 'Unauthorized', 401)
+  if (error || !user) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { searchParams } = new URL(req.url)
   const applicationId = searchParams.get('applicationId')
-  if (!applicationId) return apiError('applicationId is required')
+
+  if (!applicationId) {
+    return NextResponse.json({ success: false, error: 'applicationId is required' }, { status: 400 })
+  }
 
   const payment = await db.payment.findUnique({
     where: { applicationId },
@@ -28,27 +33,34 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  return apiSuccess({ payment })
+  return NextResponse.json({ success: true, data: { payment } })
 }
 
-// Mock payment confirmation (sandbox / dev only)
+// Mock payment confirmation — only works when LIPANA_SECRET_KEY is not set
 export async function POST(req: NextRequest) {
   const isMock =
-    !process.env.MPESA_CONSUMER_KEY ||
-    process.env.MPESA_CONSUMER_KEY === 'your-mpesa-consumer-key'
+    !process.env.LIPANA_SECRET_KEY ||
+    process.env.LIPANA_SECRET_KEY === 'your-lipana-secret-key'
 
   if (!isMock) {
-    return apiError('Mock confirmation only available in sandbox mode', 403)
+    return NextResponse.json(
+      { success: false, error: 'Mock confirmation only available in sandbox/mock mode' },
+      { status: 403 }
+    )
   }
 
   const { user, error } = await requireAuth(req)
-  if (error || !user) return apiError(error || 'Unauthorized', 401)
+  if (error || !user) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
 
   const body = await req.json()
   const { applicationId } = body
 
   const payment = await db.payment.findUnique({ where: { applicationId } })
-  if (!payment) return apiError('Payment not found', 404)
+  if (!payment) {
+    return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 })
+  }
 
   const mockReceipt = `QK${Date.now().toString().slice(-8)}`
 
@@ -59,7 +71,7 @@ export async function POST(req: NextRequest) {
       mpesaReceiptNo: mockReceipt,
       transactionDate: new Date(),
       resultCode: '0',
-      resultDesc: 'The service request is processed successfully.',
+      resultDesc: 'Mock payment confirmed successfully.',
     },
   })
 
@@ -73,21 +85,24 @@ export async function POST(req: NextRequest) {
       applicationId,
       status: 'SUBMITTED' as ApplicationStatus,
       changedBy: user.id,
-      comment: `Submitted after mock payment (${mockReceipt})`,
+      comment: `Submitted after mock Lipana payment (${mockReceipt})`,
     },
   })
 
   await db.notification.create({
     data: {
       userId: user.id,
-      title: 'Application Submitted!',
-      message: `Payment confirmed (Mock: ${mockReceipt}). Your application has been submitted for review.`,
+      title: 'Application Submitted! 🎉',
+      message: `Mock payment confirmed (${mockReceipt}). Your application has been submitted for review.`,
       type: 'success',
     },
   })
 
-  return apiSuccess({
-    mpesaReceiptNo: mockReceipt,
-    message: 'Mock payment confirmed and application submitted!',
+  return NextResponse.json({
+    success: true,
+    data: {
+      mpesaReceiptNo: mockReceipt,
+      message: 'Mock payment confirmed and application submitted!',
+    },
   })
 }
