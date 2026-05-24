@@ -1,25 +1,42 @@
 // app/api/payments/callback/route.ts
+// Lipana webhook — configure this URL in your Lipana dashboard:
+// https://your-app.up.railway.app/api/payments/callback
 export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { parseCallbackData } from '@/lib/mpesa'
+import { verifyWebhookSignature, parseWebhookPayload } from '@/lib/mpesa'
 import { sendPaymentConfirmationEmail } from '@/lib/email'
+import { ApplicationStatus } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    console.log('📲 M-Pesa Callback received:', JSON.stringify(body, null, 2))
+    console.log('📲 Lipana Webhook received:', JSON.stringify(body, null, 2))
 
-    const callbackData = body?.Body?.stkCallback
-    if (!callbackData) {
-      return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })
+    // Verify webhook signature if secret is set
+    const signature = req.headers.get('x-lipana-signature') || ''
+    const webhookSecret = process.env.LIPANA_WEBHOOK_SECRET || ''
+
+    if (webhookSecret && signature) {
+      const isValid = verifyWebhookSignature(body, signature, webhookSecret)
+      if (!isValid) {
+        console.error('❌ Invalid webhook signature')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
     }
 
-    const parsed = parseCallbackData(callbackData)
+    const parsed = parseWebhookPayload(body)
 
-    // Find payment by checkout request ID — single application include with nested user
+    // Find payment by checkoutRequestId or transactionId
     const payment = await db.payment.findFirst({
-      where: { checkoutRequestId: parsed.checkoutRequestId },
+      where: {
+        OR: [
+          { checkoutRequestId: parsed.checkoutRequestId },
+          { checkoutRequestId: parsed.transactionId },
+          { merchantRequestId: parsed.transactionId },
+        ],
+      },
       include: {
         application: {
           select: {
@@ -33,84 +50,82 @@ export async function POST(req: NextRequest) {
     })
 
     if (!payment) {
-      console.error('Payment not found for checkout:', parsed.checkoutRequestId)
-      return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })
+      console.error('Payment not found for transaction:', parsed)
+      // Return 200 to prevent Lipana from retrying
+      return NextResponse.json({ received: true })
     }
 
-    if (parsed.resultCode === 0) {
-      // Payment successful
+    if (parsed.isSuccess) {
+      // Update payment to SUCCESS
       await db.payment.update({
         where: { id: payment.id },
         data: {
           status: 'SUCCESS',
-          mpesaReceiptNo: parsed.mpesaReceiptNo,
-          transactionDate: parsed.transactionDate
-            ? new Date(String(parsed.transactionDate))
-            : new Date(),
-          resultCode: String(parsed.resultCode),
-          resultDesc: parsed.resultDesc,
+          mpesaReceiptNo: parsed.mpesaReceiptNo || parsed.transactionId,
+          transactionDate: new Date(),
+          resultCode: String(parsed.resultCode || 0),
+          resultDesc: parsed.resultDesc || 'Success',
         },
       })
 
-      // Auto-submit the application
+      // Submit the application
       await db.application.update({
         where: { id: payment.applicationId },
-        data: { status: 'SUBMITTED' },
+        data: { status: 'SUBMITTED' as ApplicationStatus },
       })
 
-      // Create status log
       await db.statusLog.create({
         data: {
           applicationId: payment.applicationId,
-          status: 'SUBMITTED',
+          status: 'SUBMITTED' as ApplicationStatus,
           changedBy: payment.userId,
-          comment: `Auto-submitted after successful payment (${parsed.mpesaReceiptNo})`,
+          comment: `Auto-submitted after successful M-Pesa payment (${parsed.mpesaReceiptNo || parsed.transactionId})`,
         },
       })
 
-      // In-app notification
       await db.notification.create({
         data: {
           userId: payment.userId,
-          title: 'Payment Successful!',
-          message: `Payment of KES ${parsed.amount} confirmed. Receipt: ${parsed.mpesaReceiptNo}. Your application has been submitted.`,
+          title: 'Payment Successful! 🎉',
+          message: `Payment of KES ${parsed.amount || payment.amount} confirmed. Receipt: ${parsed.mpesaReceiptNo || 'N/A'}. Your application has been submitted.`,
           type: 'success',
         },
       })
 
-      // Send confirmation email (non-blocking)
       sendPaymentConfirmationEmail(
         payment.application.user.email,
         payment.application.user.fullName,
-        parsed.amount || 500,
+        parsed.amount || payment.amount,
         parsed.mpesaReceiptNo || 'N/A',
         payment.application.referenceNo
       ).catch(console.error)
-    } else {
-      // Payment failed or cancelled
+
+    } else if (parsed.isFailed || parsed.isCancelled) {
       await db.payment.update({
         where: { id: payment.id },
         data: {
-          status: parsed.resultCode === 1032 ? 'CANCELLED' : 'FAILED',
-          resultCode: String(parsed.resultCode),
-          resultDesc: parsed.resultDesc,
+          status: parsed.isCancelled ? 'CANCELLED' : 'FAILED',
+          resultCode: String(parsed.resultCode || 'N/A'),
+          resultDesc: parsed.resultDesc || 'Payment failed',
         },
       })
 
       await db.notification.create({
         data: {
           userId: payment.userId,
-          title: 'Payment Failed',
-          message: `Payment failed: ${parsed.resultDesc}. Please try again.`,
+          title: parsed.isCancelled ? 'Payment Cancelled' : 'Payment Failed',
+          message: parsed.isCancelled
+            ? 'You cancelled the M-Pesa payment. Please try again.'
+            : `Payment failed: ${parsed.resultDesc || 'Unknown error'}. Please try again.`,
           type: 'error',
         },
       })
     }
 
-    return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })
+    // Always return 200 to Lipana
+    return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Callback error:', error)
-    // Always return 200 to M-Pesa to prevent retries
-    return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' })
+    console.error('Webhook error:', error)
+    return NextResponse.json({ received: true })
   }
 }
