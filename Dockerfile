@@ -33,7 +33,7 @@ ENV DATABASE_URL="postgresql://x:x@localhost:5432/x"
 
 RUN npm run build
 
-# Stage 3: Runner — copy FULL node_modules to avoid missing package issues
+# Stage 3: Runner — full node_modules for reliability
 FROM node:20-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
@@ -46,12 +46,12 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy standalone build
+# Next.js standalone build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy full node_modules (guarantees all packages available at runtime)
+# Full node_modules (ensures all packages available at runtime)
 COPY --from=builder /app/node_modules ./node_modules
 
 # Prisma schema and migrations
@@ -59,7 +59,6 @@ COPY --from=builder /app/prisma ./prisma
 
 # Startup script
 COPY --from=builder /app/scripts ./scripts
-
 RUN mkdir -p ./public/uploads && chown -R nextjs:nodejs ./public/uploads
 RUN chmod +x ./scripts/start.sh
 
