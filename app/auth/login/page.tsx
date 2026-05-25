@@ -16,16 +16,13 @@ export default function LoginPage() {
   const { login, isLoading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) })
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+  })
 
   const onSubmit = async (data: LoginInput) => {
     const success = await login(data.email, data.password)
     if (success) {
-      // Redirect based on role
       const user = useAuth.getState().user
       if (user?.role === 'ADMIN') {
         router.push('/admin')
@@ -92,7 +89,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-3xl font-bold text-gray-900">Sign in to your account</h1>
             <p className="text-gray-500 mt-2">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/auth/register" className="text-brand-600 font-semibold hover:underline">
                 Register here
               </Link>
@@ -101,17 +98,25 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email Address</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Email Address
+              </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   {...register('email')}
                   type="email"
                   placeholder="you@example.com"
-                  className={`w-full pl-10 pr-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50 focus:bg-white'}`}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${
+                    errors.email
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-gray-200 bg-gray-50 focus:bg-white'
+                  }`}
                 />
               </div>
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+              )}
             </div>
 
             <div>
@@ -125,7 +130,11 @@ export default function LoginPage() {
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
-                  className={`w-full pl-10 pr-11 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${errors.password ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50 focus:bg-white'}`}
+                  className={`w-full pl-10 pr-11 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${
+                    errors.password
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-gray-200 bg-gray-50 focus:bg-white'
+                  }`}
                 />
                 <button
                   type="button"
@@ -135,7 +144,9 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
+              )}
             </div>
 
             <button
@@ -153,15 +164,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-amber-800 text-xs font-semibold mb-2">Demo Credentials</p>
-            <div className="space-y-1 text-xs text-amber-700">
-              <p><span className="font-medium">Student:</span> student@test.co.ke / Student@1234</p>
-              <p><span className="font-medium">Admin:</span> admin@edufund.co.ke / Admin@1234</p>
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>
