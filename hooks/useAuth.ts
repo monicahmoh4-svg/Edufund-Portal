@@ -1,5 +1,5 @@
-// hooks/useAuth.ts
 'use client'
+// hooks/useAuth.ts
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import toast from 'react-hot-toast'
@@ -34,6 +34,16 @@ interface RegisterData {
   confirmPassword: string
 }
 
+// Helper to set cookie client-side so middleware can read it
+function setAuthCookie(token: string) {
+  const maxAge = 7 * 24 * 60 * 60 // 7 days
+  document.cookie = `auth_token=${token}; path=/; max-age=${maxAge}; SameSite=lax${location.protocol === 'https:' ? '; Secure' : ''}`
+}
+
+function clearAuthCookie() {
+  document.cookie = 'auth_token=; path=/; max-age=0'
+}
+
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -58,6 +68,8 @@ export const useAuth = create<AuthState>()(
             return false
           }
           set({ user: data.data.user, token: data.data.token })
+          // Set cookie so middleware and server components can read the token
+          setAuthCookie(data.data.token)
           toast.success(`Welcome back, ${data.data.user.fullName.split(' ')[0]}!`)
           return true
         } catch {
@@ -82,6 +94,7 @@ export const useAuth = create<AuthState>()(
             return false
           }
           set({ user: data.data.user, token: data.data.token })
+          setAuthCookie(data.data.token)
           toast.success('Account created successfully!')
           return true
         } catch {
@@ -94,6 +107,7 @@ export const useAuth = create<AuthState>()(
 
       logout: async () => {
         await fetch('/api/auth/me', { method: 'DELETE' })
+        clearAuthCookie()
         set({ user: null, token: null })
         toast.success('Logged out successfully')
         window.location.href = '/'
@@ -108,10 +122,15 @@ export const useAuth = create<AuthState>()(
           })
           if (!res.ok) {
             set({ user: null, token: null })
+            clearAuthCookie()
             return
           }
           const data = await res.json()
-          if (data.success) set({ user: data.data })
+          if (data.success) {
+            set({ user: data.data })
+            // Refresh cookie on each fetchMe so it doesn't expire
+            setAuthCookie(token)
+          }
         } catch {
           // silently fail
         }
@@ -139,12 +158,20 @@ export function useApi() {
   }
 
   const post = async (url: string, body: unknown) => {
-    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
     return res.json()
   }
 
   const patch = async (url: string, body: unknown) => {
-    const res = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body) })
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(body),
+    })
     return res.json()
   }
 
