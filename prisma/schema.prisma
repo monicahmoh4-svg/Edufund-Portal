@@ -1,11 +1,13 @@
-// EduFund Portal — Prisma Schema
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -46,20 +48,20 @@ enum Gender {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  fullName     String
-  email        String   @unique
-  phone        String
-  password     String
-  role         Role     @default(STUDENT)
-  isVerified   Boolean  @default(false)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id         String   @id @default(cuid())
+  fullName   String
+  email      String   @unique
+  phone      String
+  password   String
+  role       Role     @default(STUDENT)
+  isVerified Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   applications  Application[]
   notifications Notification[]
-  auditLogs     AuditLog[]     @relation("AdminLogs")
+  auditLogs     AuditLog[]    @relation("AdminLogs")
 
   @@map("users")
 }
@@ -70,7 +72,7 @@ model Application {
   status      ApplicationStatus @default(DRAFT)
   referenceNo String            @unique @default(cuid())
 
-  // Step 1: Personal Details
+  // Step 1 — Personal Details
   fullName        String
   idNumber        String
   dateOfBirth     DateTime
@@ -79,34 +81,34 @@ model Application {
   email           String
   county          String
   constituency    String?
-  hasDisability   Boolean  @default(false)
+  hasDisability   Boolean @default(false)
   disabilityNotes String?
 
-  // Step 2: Family Background
-  guardianName      String
+  // Step 2 — Family Background
+  guardianName       String
   guardianOccupation String
-  householdIncome   Float
-  dependents        Int
-  isOrphan          Boolean @default(false)
-  orphanStatus      String?
+  householdIncome    Float
+  dependents         Int
+  isOrphan           Boolean @default(false)
+  orphanStatus       String?
 
-  // Step 3: Institution Details
-  institutionType   InstitutionType
-  institutionName   String
-  institutionId     String?
-  admissionNumber   String
-  course            String
-  yearOfStudy       Int
-  totalFees         Float?
+  // Step 3 — Institution Details
+  institutionType InstitutionType
+  institutionName String
+  institutionId   String?
+  admissionNumber String
+  course          String
+  yearOfStudy     Int
+  totalFees       Float?
 
-  // Step 4: Financial Need
-  feesRequired      Float
-  amountRequested   Float
-  otherFunding      Float    @default(0)
+  // Step 4 — Financial Need
+  feesRequired       Float
+  amountRequested    Float
+  otherFunding       Float   @default(0)
   otherFundingSource String?
-  personalStatement String
+  personalStatement  String
 
-  // Step 5: Admin fields
+  // Admin fields
   adminComment String?
   reviewedBy   String?
   reviewedAt   DateTime?
@@ -116,9 +118,9 @@ model Application {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User        @relation(fields: [userId], references: [id])
-  documents Document[]
-  payment   Payment?
+  user       User        @relation(fields: [userId], references: [id])
+  documents  Document[]
+  payment    Payment?
   statusLogs StatusLog[]
 
   @@map("applications")
@@ -131,7 +133,7 @@ model Document {
   fileType      String
   fileSize      Int
   filePath      String
-  documentType  String   // admission_letter, fee_structure, national_id, supporting
+  documentType  String
   uploadedAt    DateTime @default(now())
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
@@ -140,20 +142,20 @@ model Document {
 }
 
 model Payment {
-  id              String        @id @default(cuid())
-  applicationId   String        @unique
-  userId          String
-  amount          Float
-  phone           String
+  id                String        @id @default(cuid())
+  applicationId     String        @unique
+  userId            String
+  amount            Float
+  phone             String
   merchantRequestId String?
   checkoutRequestId String?
-  mpesaReceiptNo  String?
-  transactionDate DateTime?
-  status          PaymentStatus @default(PENDING)
-  resultCode      String?
-  resultDesc      String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  mpesaReceiptNo    String?
+  transactionDate   DateTime?
+  status            PaymentStatus @default(PENDING)
+  resultCode        String?
+  resultDesc        String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   application Application @relation(fields: [applicationId], references: [id])
 
@@ -174,15 +176,15 @@ model StatusLog {
 }
 
 model Institution {
-  id          String          @id @default(cuid())
-  name        String
-  type        InstitutionType
-  county      String
-  code        String?
-  website     String?
-  isActive    Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id        String          @id @default(cuid())
+  name      String
+  type      InstitutionType
+  county    String
+  code      String?
+  website   String?
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@map("institutions")
 }
@@ -207,7 +209,7 @@ model Notification {
   userId    String
   title     String
   message   String
-  type      String   @default("info") // info, success, warning, error
+  type      String   @default("info")
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
