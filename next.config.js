@@ -1,26 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-
+  // NO output:'standalone' — Vercel handles its own bundling
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'picsum.photos' },
     ],
   },
-
   experimental: {
-    // Tell Next.js NOT to bundle these — load from node_modules at runtime
     serverComponentsExternalPackages: [
       '@prisma/client',
       'bcryptjs',
       'jsonwebtoken',
       'nodemailer',
-      'multer',
-      'sharp',
     ],
   },
-
   async headers() {
     return [
       {
