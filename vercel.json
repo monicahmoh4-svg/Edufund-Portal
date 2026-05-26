@@ -4,10 +4,8 @@
   "installCommand": "npm install",
   "functions": {
     "app/api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
     }
-  },
-  "env": {
-    "NEXT_TELEMETRY_DISABLED": "1"
   }
 }
