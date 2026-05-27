@@ -21,17 +21,21 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Remove conflicting files
-RUN rm -f "app/applications/[id]/route.ts"
-RUN rm -f "app/api/applications/[id]/page.tsx"
+RUN rm -f "app/applications/[id]/route.ts" || true
+RUN rm -f "app/api/applications/[id]/page.tsx" || true
 
 # Generate Prisma client
 RUN npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-ENV DATABASE_URL="postgresql://x:x@localhost:5432/x"
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 
-RUN npm run build
+# Build Next.js
+RUN npm run build || { echo "Build failed"; exit 1; }
+
+# Verify .next/standalone exists
+RUN test -d .next/standalone || { echo ".next/standalone not found after build"; ls -la .next/; exit 1; }
 
 # Stage 3: Runner — full node_modules for reliability
 FROM node:20-alpine AS runner
@@ -67,3 +71,4 @@ USER nextjs
 EXPOSE 3000
 
 CMD ["sh", "./scripts/start.sh"]
+
