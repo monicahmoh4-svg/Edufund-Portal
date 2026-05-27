@@ -1,11 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install",
-  "functions": {
-    "app/api/**/*.ts": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
-    }
-  }
+  "installCommand": "npm install"
 }
