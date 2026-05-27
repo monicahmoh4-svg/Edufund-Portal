@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for Railway Docker — creates .next/standalone folder
+  output: 'standalone',
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -7,6 +10,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'picsum.photos' },
     ],
   },
+
   experimental: {
     serverComponentsExternalPackages: [
       '@prisma/client',
@@ -15,6 +19,7 @@ const nextConfig = {
       'nodemailer',
     ],
   },
+
   async headers() {
     return [
       {
