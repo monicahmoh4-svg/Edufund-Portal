@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // NO output:'standalone' — Vercel handles its own bundling
+  output: 'standalone',
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
