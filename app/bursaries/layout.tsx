@@ -1,6 +1,4 @@
-// app/bursaries/layout.tsx
-import DashboardShell from '@/components/dashboard/DashboardShell'
-
+import React from 'react'
 export default function BursariesLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell>{children}</DashboardShell>
+  return <>{children}</>
 }
