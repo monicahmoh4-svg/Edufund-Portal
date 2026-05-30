@@ -1,6 +1,4 @@
-// app/notifications/layout.tsx
-import DashboardShell from '@/components/dashboard/DashboardShell'
-
+import React from 'react'
 export default function NotificationsLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell>{children}</DashboardShell>
+  return <>{children}</>
 }
